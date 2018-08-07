@@ -55,7 +55,7 @@
 
 #ifdef HAVE_LIB_GFLAGS
 
-#include <gflags/gflags.h>
+#include "gflags/gflags.h"
 
 #else
 

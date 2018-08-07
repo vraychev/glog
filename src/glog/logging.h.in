@@ -83,7 +83,7 @@
 #endif
 
 #if @ac_cv_have_libgflags@
-#include <gflags/gflags.h>
+#include "gflags/gflags.h"
 #endif
 
 @ac_google_start_namespace@

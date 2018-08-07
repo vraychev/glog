@@ -11,7 +11,7 @@ macro(determine_gflags_namespace VARIABLE)
     set(_NAMESPACES gflags google)
     set(_check_code
 "
-#include <gflags/gflags.h>
+#include \"gflags/gflags.h\"
 
 int main(int argc, char**argv)
 {
