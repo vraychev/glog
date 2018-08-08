@@ -695,6 +695,9 @@ std::string* MakeCheckOpString(const T1& v1, const T2& v2, const char* exprtext)
   return comb.NewString();
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+
 // Helper functions for CHECK_OP macro.
 // The (int, int) specialization works around the issue that the compiler
 // will not instantiate the template version of the function on values of
@@ -721,6 +724,8 @@ DEFINE_CHECK_OP_IMPL(Check_LT, < )
 DEFINE_CHECK_OP_IMPL(Check_GE, >=)
 DEFINE_CHECK_OP_IMPL(Check_GT, > )
 #undef DEFINE_CHECK_OP_IMPL
+
+#pragma GCC diagnostic pop
 
 // Helper macro for binary operators.
 // Don't use this macro directly in your code, use CHECK_EQ et al below.
