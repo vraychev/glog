@@ -1508,6 +1508,12 @@ void LogMessage::RecordCrashReason(
 #endif
 }
 
+#ifdef __GNUC__
+# define BUILTIN_UNREACHABLE __builtin_unreachable();
+#else
+# define BUILTIN_UNREACHABLE
+#endif
+
 #ifdef HAVE___ATTRIBUTE__
 # define ATTRIBUTE_NORETURN __attribute__((noreturn))
 #else
@@ -1521,6 +1527,7 @@ static void logging_fail() ATTRIBUTE_NORETURN;
 
 static void logging_fail() {
   abort();
+  BUILTIN_UNREACHABLE
 }
 
 typedef void (*logging_fail_func_t)() ATTRIBUTE_NORETURN;
