@@ -7,7 +7,7 @@
 #       https://github.com/google/glog/issues/61
 #       https://github.com/google/glog/files/393474/BUILD.txt
 
-def glog_library(namespace='google', with_gflags=1):
+def glog_library(namespace='google', with_gflags=1, **kwargs):
     if native.repository_name() != '@':
         gendir = '$(GENDIR)/external/' + native.repository_name().lstrip('@')
     else:
@@ -73,13 +73,23 @@ def glog_library(namespace='google', with_gflags=1):
 
             # Include generated header files.
             '-I%s/glog_internal' % gendir,
-        ] + ([
+        ] + select({
+            # For stacktrace.
+            '@bazel_tools//src/conditions:darwin': [
+                '-DHAVE_UNWIND_H',
+                '-DHAVE_DLADDR',
+            ],
+            '//conditions:default': [
+                '-DHAVE_UNWIND_H',
+            ],
+        }) + ([
             # Use gflags to parse CLI arguments.
             '-DHAVE_LIB_GFLAGS',
         ] if with_gflags else []),
         deps = [
             '@com_github_gflags_gflags//:gflags',
         ] if with_gflags else [],
+        **kwargs
     )
 
     native.genrule(
@@ -94,18 +104,18 @@ sed -e 's/@ac_cv_cxx_using_operator@/1/g' \
     -e 's/@ac_cv_have_unistd_h@/1/g' \
     -e 's/@ac_cv_have_stdint_h@/1/g' \
     -e 's/@ac_cv_have_systypes_h@/1/g' \
-    -e 's/@ac_cv_have_libgflags_h@/1/g' \
+    -e 's/@ac_cv_have_libgflags@/{}/g' \
     -e 's/@ac_cv_have_uint16_t@/1/g' \
     -e 's/@ac_cv_have___builtin_expect@/1/g' \
     -e 's/@ac_cv_have_.*@/0/g' \
-    -e 's/@ac_google_start_namespace@/namespace google {/g' \
-    -e 's/@ac_google_end_namespace@/}/g' \
+    -e 's/@ac_google_start_namespace@/namespace google {{/g' \
+    -e 's/@ac_google_end_namespace@/}}/g' \
     -e 's/@ac_google_namespace@/google/g' \
     -e 's/@ac_cv___attribute___noinline@/__attribute__((noinline))/g' \
     -e 's/@ac_cv___attribute___noreturn@/__attribute__((noreturn))/g' \
     -e 's/@ac_cv___attribute___printf_4_5@/__attribute__((__format__ (__printf__, 4, 5)))/g'
 EOF
-''',
+'''.format(int(with_gflags)),
     )
 
     native.genrule(

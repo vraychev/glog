@@ -8,7 +8,7 @@ if (POLICY CMP0063)
   cmake_policy (SET CMP0063 NEW)
 endif (POLICY CMP0063)
 
-project(glog VERSION 0.3.5 LANGUAGES C CXX)
+project(glog VERSION 0.4.0 LANGUAGES C CXX)
 
 set (CPACK_PACKAGE_NAME glog)
 set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "")
@@ -21,6 +21,8 @@ option (WITH_GFLAGS "Use gflags" ON)
 option (WITH_THREADS "Enable multithreading support" ON)
 option (WITH_TLS "Enable Thread Local Storage (TLS) support" ON)
 option (BUILD_SHARED_LIBS "Build shared libraries" OFF)
+option (PRINT_UNSYMBOLIZED_STACK_TRACES
+  "Print raw pc values on symbolization failure" OFF)
 
 list (APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -203,6 +205,12 @@ check_cxx_source_compiles ("
 thread_local int tls;
 int main() { }
 " HAVE_CXX11_TLS)
+
+check_cxx_source_compiles ("
+#include <type_traits>
+std::aligned_storage<sizeof(char), alignof(char)>::type data;
+int main() { }
+" HAVE_ALIGNED_STORAGE)
 
 if (WITH_TLS)
   # Cygwin does not support the thread attribute. Don't bother.
@@ -523,13 +531,13 @@ if (NOT BUILD_SHARED_LIBS)
 else (NOT BUILD_SHARED_LIBS)
   target_compile_definitions (glog PRIVATE GOOGLE_GLOG_IS_A_DLL=1)
 
-  if (HAVE___ATTRIBUTE__VISIBILITY_DEFAULT)
-    set (_EXPORT "__attribute__((visibility(\"default\")))")
-    set (_IMPORT "")
-  elseif (HAVE___DECLSPEC)
+  if (HAVE___DECLSPEC)
     set (_EXPORT "__declspec(dllexport)")
     set (_IMPORT "__declspec(dllimport)")
-  endif (HAVE___ATTRIBUTE__VISIBILITY_DEFAULT)
+  elseif (HAVE___ATTRIBUTE__VISIBILITY_DEFAULT)
+    set (_EXPORT "__attribute__((visibility(\"default\")))")
+    set (_IMPORT "")
+  endif (HAVE___DECLSPEC)
 
   target_compile_definitions (glog PRIVATE
     "GOOGLE_GLOG_DLL_DECL=${_EXPORT}")
@@ -624,6 +632,7 @@ if (BUILD_TESTING)
 
   if (TARGET stacktrace_unittest)
     add_test (NAME stacktrace COMMAND stacktrace_unittest)
+    set_tests_properties(stacktrace PROPERTIES TIMEOUT 30)
   endif (TARGET stacktrace_unittest)
 
   add_test (NAME stl_logging COMMAND stl_logging_unittest)

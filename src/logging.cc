@@ -1153,8 +1153,16 @@ static LogMessage::LogMessageData fatal_msg_data_shared;
 // LogMessageData object exists (in this case glog makes zero heap memory
 // allocations).
 static GLOG_THREAD_LOCAL_STORAGE bool thread_data_available = true;
-static GLOG_THREAD_LOCAL_STORAGE char thread_msg_data[sizeof(LogMessage::LogMessageData)];
-#endif // defined(GLOG_THREAD_LOCAL_STORAGE)
+
+#ifdef HAVE_ALIGNED_STORAGE
+static GLOG_THREAD_LOCAL_STORAGE
+    std::aligned_storage<sizeof(LogMessage::LogMessageData),
+                         alignof(LogMessage::LogMessageData)>::type thread_msg_data;
+#else
+static GLOG_THREAD_LOCAL_STORAGE
+    char thread_msg_data[sizeof(void*) + sizeof(LogMessage::LogMessageData)];
+#endif  // HAVE_ALIGNED_STORAGE
+#endif  // defined(GLOG_THREAD_LOCAL_STORAGE)
 
 LogMessage::LogMessageData::LogMessageData()
   : stream_(message_text_, LogMessage::kMaxLogMessageLen, 0) {
@@ -1216,7 +1224,16 @@ void LogMessage::Init(const char* file,
     // No need for locking, because this is thread local.
     if (thread_data_available) {
       thread_data_available = false;
+#ifdef HAVE_ALIGNED_STORAGE
       data_ = new (&thread_msg_data) LogMessageData;
+#else
+      const uintptr_t kAlign = sizeof(void*) - 1;
+
+      char* align_ptr =
+          reinterpret_cast<char*>(reinterpret_cast<uintptr_t>(thread_msg_data + kAlign) & ~kAlign);
+      data_ = new (align_ptr) LogMessageData;
+      assert(reinterpret_cast<uintptr_t>(align_ptr) % sizeof(void*) == 0);
+#endif
     } else {
       allocated_ = new LogMessageData();
       data_ = allocated_;
@@ -1249,7 +1266,6 @@ void LogMessage::Init(const char* file,
   data_->timestamp_ = static_cast<time_t>(now);
   localtime_r(&data_->timestamp_, &data_->tm_time_);
   int usecs = static_cast<int>((now - data_->timestamp_) * 1000000);
-  RawLog__SetLastTime(data_->tm_time_, usecs);
 
   data_->num_chars_to_log_ = 0;
   data_->num_chars_to_syslog_ = 0;
@@ -1294,7 +1310,7 @@ void LogMessage::Init(const char* file,
 LogMessage::~LogMessage() {
   Flush();
 #ifdef GLOG_THREAD_LOCAL_STORAGE
-  if (data_ == static_cast<void*>(thread_msg_data)) {
+  if (data_ == static_cast<void*>(&thread_msg_data)) {
     data_->~LogMessageData();
     thread_data_available = true;
   }
